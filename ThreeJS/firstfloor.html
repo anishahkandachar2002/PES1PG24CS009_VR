@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Four Walls with Camera, Collision, HDR, and Focus Lights</title>
+<style>
+body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+#instructions {
+position: absolute;
+top: 10px;
+left: 10px;
+color: white;
+background: rgba(0,0,0,0.7);
+padding: 10px;
+border-radius: 5px;
+z-index: 100;
+}
+#crosshair {
+position: absolute;
+top: 50%;
+left: 50%;
+width: 4px;
+height: 4px;
+background: white;
+border-radius: 50%;
+transform: translate(-50%, -50%);
+z-index: 100;
+display: none;
+}
+</style>
+</head>
+<body>
+<div id="instructions">
+WASD to move<br>
+Click to enable mouse look<br>
+**Click on Shiva or Press 'F' to make a flower fall!**<br>
+**Press 'M' for Aarti!**<br>
+ESC to exit mouse look
+</div>
+<div id="crosshair"></div>
+
+<button id="goToFirst" style="
+display: none;
+position: absolute;
+bottom: 20px;
+left: 50%;
+transform: translateX(-50%);
+padding: 10px 20px;
+font-size: 18px;
+background-color: #00aaff;
+color: white;
+border: none;
+border-radius: 5px;
+cursor: pointer;
+z-index: 100;
+">
+Go to Ground Floor
+</button>
+
+<button id="goToGround" style="
+display: none;
+position: absolute;
+bottom: 60px;
+left: 50%;
+transform: translateX(-50%);
+padding: 10px 20px;
+font-size: 18px;
+background-color: #ff6600;
+color: white;
+border: none;
+border-radius: 5px;
+cursor: pointer;
+z-index: 100;
+">
+Back to Ground Floor
+</button>
+
+<audio id="music1" src="m1.mp3" loop></audio>
+<audio id="music2" src="m2.mp3" loop></audio>
+<audio id="music3" src="m3.mp3" loop></audio>
+<audio id="music4" src="m4.mp3" loop></audio>
+<audio id="aartiSound" src="aarti.mp3"></audio> <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/RGBELoader.js"></script>
+<script>
+// Basic setup
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true }); // Enable antialiasing
+const goToFirstBtn = document.getElementById("goToFirst");
+const goToGroundBtn = document.getElementById("goToGround");
+
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// --- Renderer Configuration for HDR and Shadows ---
+renderer.outputEncoding = THREE.sRGBEncoding; // For correct color space with HDRIs
+renderer.toneMapping = THREE.ACESFilmicToneMapping; // Recommended tone mapping for HDRIs
+renderer.toneMappingExposure = 1.0; // Adjust this for overall brightness (default is 1.0)
+renderer.shadowMap.enabled = true; // Enable shadow maps
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+
+// --- HDRI Environment for Baked Lighting Effect ---
+new THREE.RGBELoader()
+.setPath('./')
+.load('fireplace_4k.hdr', function (texture) {
+texture.mapping = THREE.EquirectangularReflectionMapping;
+scene.environment = texture; // Provides lighting and reflections for PBR materials
+},
+(progress) => {
+// console.log(`HDRI loading: ${Math.round(progress.loaded / progress.total * 100)}%`);
+},
+(error) => {
+console.error('Error loading HDRI:', error);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+});
+
+// Mouse controls
+let isPointerLocked = false;
+const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+const PI_2 = Math.PI / 2;
+
+// --- Lights (Adjusted for HDR Environment) ---
+scene.add(new THREE.AmbientLight(0xffffff, 0.1));
+const pointLight = new THREE.PointLight(0xffffff, 0.5);
+pointLight.position.set(0, 6, 0);
+pointLight.castShadow = true;
+scene.add(pointLight);
+
+goToGroundBtn.addEventListener('click', () => {
+window.location.href = "index.html";
+});
+
+goToFirstBtn.addEventListener('click', () => {
+window.location.href = "index.html";
+});
+
+// Floor
+const textureLoader = new THREE.TextureLoader();
+const floorTexture = textureLoader.load('floor.jpg');
+floorTexture.wrapS = THREE.RepeatWrapping;
+floorTexture.wrapT = THREE.RepeatWrapping;
+floorTexture.repeat.set(4, 4);
+
+const floor = new THREE.Mesh(
+new THREE.PlaneGeometry(20, 20),
+new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.7, metalness: 0.1 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Walls
+const walls = [];
+const wallTexture = textureLoader.load('firstwall1.jpg');
+wallTexture.wrapS = THREE.RepeatWrapping;
+wallTexture.wrapT = THREE.RepeatWrapping;
+wallTexture.repeat.set(2, 1);
+
+const wallMaterial = new THREE.MeshStandardMaterial({
+map: wallTexture,
+roughness: 0.8,
+metalness: 0.05
+});
+
+function addWall(x, z, rotY = 0) {
+const wall = new THREE.Mesh(
+new THREE.BoxGeometry(20, 4, 0.2),
+wallMaterial
+);
+wall.position.set(x, 2, z);
+wall.rotation.y = rotY;
+wall.castShadow = true;
+wall.receiveShadow = true;
+scene.add(wall);
+walls.push(wall);
+}
+
+addWall(0, -10);
+addWall(0, 10);
+addWall(-10, 0, Math.PI / 2);
+addWall(10, 0, Math.PI / 2);
+
+// Partition Wall 1 (Horizontal inside)
+const partitionTexture = textureLoader.load('backshiva.jpg');
+partitionTexture.wrapS = THREE.RepeatWrapping;
+partitionTexture.wrapT = THREE.RepeatWrapping;
+partitionTexture.repeat.set(1, 1);
+
+const partitionMat = new THREE.MeshStandardMaterial({
+map: partitionTexture,
+roughness: 0.7,
+metalness: 0.1
+});
+
+const partition1 = new THREE.Mesh(
+new THREE.BoxGeometry(13, 6, 0.2),
+partitionMat
+);
+partition1.position.set(-2, 1.5, -2);
+partition1.castShadow = true;
+partition1.receiveShadow = true;
+scene.add(partition1);
+walls.push(partition1);
+
+
+const partition2 = new THREE.Mesh(
+new THREE.BoxGeometry(10, 6, 0.2),
+wallMaterial
+);
+partition2.rotation.y = Math.PI / 2;
+partition2.position.set(1.5, 1, 3);
+partition2.castShadow = true;
+partition2.receiveShadow = true;
+scene.add(partition2);
+walls.push(partition2);
+
+const roofTexture = textureLoader.load('roof.jpg');
+roofTexture.wrapS = THREE.RepeatWrapping;
+roofTexture.wrapT = THREE.RepeatWrapping;
+roofTexture.repeat.set(4, 4);
+
+const ceiling = new THREE.Mesh(
+new THREE.PlaneGeometry(20, 20),
+new THREE.MeshStandardMaterial({ map: roofTexture, roughness: 0.7, metalness: 0.1 })
+);
+ceiling.rotation.x = Math.PI / 2;
+ceiling.position.y = 4.1;
+ceiling.receiveShadow = true;
+scene.add(ceiling);
+walls.push(ceiling);
+
+const audioZones = [
+{
+id: "music1",
+src: "m1.mp3",
+bounds: { xMin: -10, xMax: 10, zMin: -10, zMax: -2 }
+},
+{
+id: "music2",
+src: "m2.mp3",
+bounds: { xMin: -5, xMax: 5, zMin: 2, zMax: 8 }
+},
+{
+id: "music3",
+src: "m3.mp3",
+bounds: { xMin: -10, xMax: -5, zMin: 8, zMax: 12 }
+},
+{
+id: "music4",
+src: "m4.mp3",
+bounds: { xMin: 5, xMax: 10, zMin: 8, zMax: 12 }
+},
+];
+
+// Camera position
+camera.position.set(0, 2, 5);
+camera.lookAt(0, 2, 0);
+
+// First Floor Platform (now casting/receiving shadows)
+const firstFloor = new THREE.Mesh(
+new THREE.BoxGeometry(100, 0.2, 100), // A large platform
+new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.7, metalness: 0.05 }) // This is the green platform
+);
+firstFloor.position.set(0, 4.2, 0); // Moved to 4.2, above the 4.1 ceiling
+firstFloor.castShadow = true;
+firstFloor.receiveShadow = true;
+scene.add(firstFloor);
+
+// Pillars (now casting/receiving shadows)
+const pillarGeo = new THREE.CylinderGeometry(0.2, 0.2, 8, 16);
+const pillarMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.6, metalness: 0.05 });
+const pillarPositions = [
+[-9.5, 4, -9.5],
+[-9.5, 4, 9.5],
+[9.5, 4, -9.5],
+[9.5, 4, 9.5],
+];
+
+pillarPositions.forEach(([x, y, z]) => {
+const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+pillar.position.set(x, y, z);
+pillar.castShadow = true;
+pillar.receiveShadow = true;
+scene.add(pillar);
+walls.push(pillar);
+});
+
+// Stairs (now casting/receiving shadows)
+const stairMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.7, metalness: 0.05 });
+const stairCount = 10;
+const stairWidth = 2;
+const stairDepth = 1;
+const stairHeight = 0.3;
+
+for (let i = 0; i < stairCount; i++) {
+const step = new THREE.Mesh(
+new THREE.BoxGeometry(stairWidth, stairHeight, stairDepth),
+stairMaterial
+);
+step.position.set(0, -((i + 0.5) * stairHeight), -i * stairDepth);
+step.castShadow = true;
+step.receiveShadow = true;
+scene.add(step);
+walls.push(step);
+}
+
+// Keyboard input
+const keys = {};
+document.addEventListener("keydown", (e) => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
+
+// Mouse controls
+function onMouseMove(event) {
+if (!isPointerLocked) return;
+
+const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+euler.setFromQuaternion(camera.quaternion);
+euler.y -= movementX * 0.002;
+euler.x -= movementY * 0.002;
+euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
+camera.quaternion.setFromEuler(euler);
+}
+
+function onPointerLockChange() {
+isPointerLocked = document.pointerLockElement === document.body;
+document.getElementById('crosshair').style.display = isPointerLocked ? 'block' : 'none';
+}
+
+function onPointerLockError() {
+console.error('Pointer lock failed');
+}
+
+// Event listeners for pointer lock
+document.addEventListener('mousemove', onMouseMove);
+document.addEventListener('pointerlockchange', onPointerLockChange);
+document.addEventListener('pointerlockerror', onPointerLockError);
+
+// Click to enable pointer lock
+document.addEventListener('click', () => {
+if (!isPointerLocked) {
+document.body.requestPointerLock();
+}
+});
+
+// ESC to exit pointer lock
+document.addEventListener('keydown', (event) => {
+if (event.key === 'Escape' && isPointerLocked) {
+document.exitPointerLock();
+}
+});
+
+// Collision helper
+function isColliding(pos) {
+const playerBox = new THREE.Box3().setFromCenterAndSize(
+pos.clone(),
+new THREE.Vector3(0.8, 2, 0.8)
+);
+
+const collidables = [...walls, firstFloor];
+scene.traverse((obj) => {
+if (obj.isMesh && obj !== floor && obj !== camera && !walls.includes(obj)) {
+collidables.push(obj);
+}
+});
+
+for (let obj of collidables) {
+const box = new THREE.Box3().setFromObject(obj);
+if (box.intersectsBox(playerBox)) return true;
+}
+return false;
+}
+
+// GLTF model loader
+const gltfLoader = new THREE.GLTFLoader();
+let shivaModel = null; // To store the Shiva model
+let flowerTemplate = null; // To store the loaded flower model for cloning
+let aartiPlateTemplate = null; // NEW: To store the loaded Aarti model for cloning
+let currentAarti = null; // NEW: To store the currently active Aarti model
+
+function loadGLBModel(x, y, z, file, scaleX = 1, scaleY = 1, scaleZ = 1, rotY = 0, name = '') {
+return new Promise((resolve) => {
+gltfLoader.load(file, function (gltf) {
+const model = gltf.scene;
+model.position.set(x, y, z);
+model.scale.set(scaleX, scaleY, scaleZ);
+model.rotation.y = rotY;
+model.name = name;
+
+model.traverse((child) => {
+if (child.isMesh) {
+child.castShadow = true;
+child.receiveShadow = true;
+// Assign userData to identify main models (Shiva, Treasure, Nandi, etc.)
+// and exclude template flowers from direct collision/raycasting
+if (name === 'Shiva Statue') {
+child.userData.isShiva = true;
+} else if (name === 'Nandi Bull' || name === 'Ancient Treasure Chest' || name === 'Ancient Scroll' || name === 'Mysterious Artifact') {
+child.userData.isInteractable = true; // For general interaction if needed
+}
+// Only add to walls for collision if it's not a temporary/template flower or Aarti
+if (!name.includes('Flower Template') && !name.includes('Aarti Template')) {
+walls.push(child);
+}
+}
+});
+
+// Only add to scene if it's not a template (we'll manually add clones later)
+if (!name.includes('Flower Template') && !name.includes('Aarti Template')) {
+scene.add(model);
+}
+
+if (name === 'Shiva Statue') {
+shivaModel = model;
+} else if (name === 'Flower Template') {
+flowerTemplate = model;
+} else if (name === 'Aarti Template') { // NEW: Store Aarti template
+aartiPlateTemplate = model;
+}
+resolve(model);
+});
+});
+}
+
+// --- Load Models ---
+
+// Shiva (facing forward now)
+loadGLBModel(0, 0, -3.5, 'shiva1.glb', 0.1, 0.1, 0.1, Math.PI, 'Shiva Statue');
+
+// Shiva's Lights (adjusted for forward facing)
+const shivaSpotlight = new THREE.SpotLight(0xffffff, 2.5, 10, Math.PI / 6, 0.4, 0.5);
+shivaSpotlight.position.set(0, 5, -2.5); // Adjusted Z to be in front of Shiva
+shivaSpotlight.castShadow = true;
+shivaSpotlight.shadow.mapSize.width = 1024;
+shivaSpotlight.shadow.mapSize.height = 1024;
+shivaSpotlight.target.position.set(0, 1, -3.5); // Target Shiva's position
+scene.add(shivaSpotlight);
+scene.add(shivaSpotlight.target);
+
+const frontFill = new THREE.PointLight(0xffccaa, 0.8, 8);
+frontFill.position.set(0, 2, -1.5); // Adjusted Z
+scene.add(frontFill);
+
+const backGlow = new THREE.PointLight(0xccccff, 0.6, 6);
+backGlow.position.set(0, 2, -4.5); // Adjusted Z (behind Shiva)
+scene.add(backGlow);
+
+// Nandi
+loadGLBModel(0, 0.2, -5.8, 'nandi_bull.glb', 0.1, 0.1, 0.1, 0, 'Nandi Bull');
+
+// Treasure
+loadGLBModel(-6.5, 0, 3, 'treasure.glb', 1.2, 2, 1.6, Math.PI / 2, 'Ancient Treasure Chest');
+
+// Treasure's Lights
+const treasureSpotlight = new THREE.SpotLight(0xffffff, 2.0, 10, Math.PI / 7, 0.4, 0.5);
+treasureSpotlight.position.set(-6.5, 5, 3);
+treasureSpotlight.castShadow = true;
+treasureSpotlight.shadow.mapSize.width = 1024;
+treasureSpotlight.shadow.mapSize.height = 1024;
+treasureSpotlight.target.position.set(-6.5, 1, 3);
+scene.add(treasureSpotlight);
+scene.add(treasureSpotlight.target);
+
+// Other models
+loadGLBModel(-2.5, 0, 3, 't2.glb', 1, 1, 1, Math.PI / 2, 'Ancient Scroll');
+loadGLBModel(3.5, 0.95, 3, 'artifact3.glb', 1.5, 1, 1, 0, 'Mysterious Artifact');
+
+// Load flower as a template, keeping it hidden initially
+loadGLBModel(0, -100, 0, 'flower1.glb', 1, 1, 1, 0, 'Flower Template');
+
+// NEW: Load Aarti plate as a template
+// Position it far away and hidden initially
+loadGLBModel(0, -100, 0, 'aarti.glb', 3, 3, 3, -Math.PI/2, 'Aarti Template'); // Changed rotY to Math.PI
+
+
+// Raycaster for object interaction
+const raycasterInteraction = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function onMouseClickInteraction(event) {
+if (!isPointerLocked) return; // Only process clicks when pointer is locked
+
+mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+raycasterInteraction.setFromCamera(mouse, camera);
+
+const intersects = raycasterInteraction.intersectObjects(scene.children, true);
+
+for (const intersect of intersects) {
+let targetObject = intersect.object;
+while (targetObject) {
+if (targetObject.userData.isShiva) {
+console.log('Shiva clicked!');
+triggerFlowerDrop();
+}
+targetObject = targetObject.parent;
+}
+}
+}
+document.addEventListener('click', onMouseClickInteraction, false);
+
+// Function to trigger flower drop, usable by both click and key press
+function triggerFlowerDrop() {
+if (!shivaModel || !flowerTemplate) {
+console.warn("Shiva model or flower template not loaded yet. Cannot drop flower.");
+return;
+}
+
+const dropSpawnPosition = new THREE.Vector3(
+shivaModel.position.x,
+shivaModel.position.y + 10,
+shivaModel.position.z
+);
+
+const fallingFlower = flowerTemplate.clone();
+fallingFlower.position.copy(dropSpawnPosition);
+fallingFlower.scale.set(0.3, 0.3, 0.3); // Increased scale of the flower
+fallingFlower.visible = true;
+
+fallingFlower.traverse((child) => {
+if (child.isMesh) {
+child.castShadow = true;
+child.receiveShadow = true;
+}
+});
+
+scene.add(fallingFlower);
+
+const shivaHeadPosition = shivaModel.position.clone();
+shivaHeadPosition.y += 1.5;
+
+const duration = 1.5; // seconds
+let startTime = performance.now();
+let animationActive = true;
+
+function animateFlowerFall() {
+if (!animationActive) return;
+
+const elapsed = (performance.now() - startTime) / 1000;
+const t = Math.min(1, elapsed / duration);
+
+fallingFlower.position.lerpVectors(dropSpawnPosition, shivaHeadPosition, t);
+fallingFlower.rotation.x += 0.1;
+fallingFlower.rotation.y += 0.05;
+
+if (t >= 1) {
+animationActive = false;
+// Optional: remove the falling flower after it reaches Shiva
+// scene.remove(fallingFlower);
+// Dispose of its geometry and material to free up memory (important for performance over time)
+// fallingFlower.traverse((child) => {
+// if (child.isMesh) {
+// child.geometry.dispose();
+// child.material.dispose();
+// }
+// });
+} else {
+requestAnimationFrame(animateFlowerFall);
+}
+}
+animateFlowerFall();
+}
+
+// --- NEW: Aarti Functionality ---
+let aartiAnimationActive = false;
+let aartiLight = null; // To hold the light attached to the aarti plate
+
+function startAarti() {
+if (!shivaModel || !aartiPlateTemplate || aartiAnimationActive) {
+console.warn("Shiva model, Aarti template not loaded, or Aarti already active.");
+return;
+}
+
+// Play Aarti sound
+const aartiAudio = document.getElementById('aartiSound');
+if (aartiAudio) {
+aartiAudio.currentTime = 0; // Rewind to start if already played
+aartiAudio.play();
+}
+
+aartiAnimationActive = true;
+
+// Clone the Aarti plate
+currentAarti = aartiPlateTemplate.clone();
+// Position the Aarti in front of Shiva, slightly above the ground
+// You might need to adjust these coordinates based on your 'aarti_plate.glb' size
+currentAarti.position.set(shivaModel.position.x, 0.5, shivaModel.position.z - 5); // Adjusted Z to be in front
+currentAarti.scale.set(3,3,3); // Adjusted scale to be more visible
+currentAarti.visible = true;
+
+currentAarti.traverse((child) => {
+if (child.isMesh) {
+child.castShadow = true;
+child.receiveShadow = true;
+}
+});
+scene.add(currentAarti);
+
+// Add a point light to simulate the flame
+aartiLight = new THREE.PointLight(0xffa500, 3, 3); // Orange light, intensity, distance
+aartiLight.position.set(0, 0.5, 0); // Position relative to the Aarti plate
+aartiLight.castShadow = true;
+aartiLight.shadow.mapSize.width = 512;
+aartiLight.shadow.mapSize.height = 512;
+currentAarti.add(aartiLight); // Attach light to Aarti model
+
+const aartiDuration = 8; // seconds for the Aarti animation
+let aartiStartTime = performance.now();
+
+function animateAarti() {
+if (!aartiAnimationActive) {
+// Clean up Aarti when animation stops
+if (currentAarti) {
+scene.remove(currentAarti);
+currentAarti.traverse((child) => {
+if (child.isMesh) {
+child.geometry.dispose();
+if (Array.isArray(child.material)) {
+child.material.forEach(material => material.dispose());
+} else {
+child.material.dispose();
+}
+}
+});
+}
+if (aartiLight) {
+aartiLight.dispose();
+aartiLight = null;
+}
+currentAarti = null;
+return;
+}
+
+const elapsed = (performance.now() - aartiStartTime) / 1000;
+const t = elapsed / aartiDuration;
+
+// Calculate vertical position for circular motion
+// This creates an up-and-down motion from -aartiHeight to +aartiHeight from its base
+const aartiBaseY = 0.5; // This is the base y-position where the Aarti starts
+const aartiHeightAmplitude = 0.5; // How much it moves up and down
+currentAarti.position.y = aartiBaseY + aartiHeightAmplitude * Math.sin(elapsed * 2); // Adjusted for a smoother motion
+
+// Maintain fixed X and Z position relative to Shiva, in front of it
+// We use currentAarti.position.x and .z as set in startAarti() as the center
+// NO CIRCULAR MOTION AROUND SHIVA - commenting these out
+// const radius = 1.5;
+// const angle = elapsed * Math.PI * 0.5;
+// currentAarti.position.x = shivaModel.position.x + radius * Math.sin(angle);
+// currentAarti.position.z = shivaModel.position.z + radius * Math.cos(angle);
+
+// Make Aarti rotate on its own axis for the "spinning" effect
+// currentAarti.rotation.y += 0.05; // This line is commented out to prevent rotation
+// You can also add a slight tilt for a more dynamic look
+// currentAarti.rotation.x = Math.sin(elapsed * 3) * 0.1; // Slight tilt
+// currentAarti.rotation.z = Math.cos(elapsed * 3) * 0.1; // Slight tilt
+
+// We no longer need to lookAt Shiva, as its X/Z are fixed relative to Shiva
+// currentAarti.lookAt(shivaModel.position.x, shivaModel.position.y + 1, shivaModel.position.z);
+
+// Fade out at the end (unchanged logic, still good)
+if (t >= 0.8) {
+const fadeProgress = (t - 0.8) / 0.2; // Last 20% of duration for fade
+currentAarti.traverse((child) => {
+if (child.isMesh && child.material) {
+if (Array.isArray(child.material)) {
+child.material.forEach(material => {
+if (material.opacity !== undefined) {
+material.transparent = true;
+material.opacity = 1 - fadeProgress;
+}
+});
+} else {
+if (child.material.opacity !== undefined) {
+child.material.transparent = true;
+child.material.opacity = 1 - fadeProgress;
+}
+}
+}
+});
+if (aartiLight) {
+aartiLight.intensity = (1 - fadeProgress) * 3; // Fade out light intensity
+}
+}
+
+if (t >= 1) {
+aartiAnimationActive = false; // End the animation
+}
+requestAnimationFrame(animateAarti);
+}
+animateAarti();
+}
+
+// Keyboard 'F' key listener (unchanged)
+document.addEventListener('keydown', (event) => {
+if (isPointerLocked && event.key.toLowerCase() === 'f') {
+triggerFlowerDrop();
+}
+});
+
+// NEW: Keyboard 'M' key listener for Aarti
+document.addEventListener('keydown', (event) => {
+if (isPointerLocked && event.key.toLowerCase() === 'm') {
+startAarti();
+}
+});
+
+
+// Animate loop
+function animate() {
+requestAnimationFrame(animate);
+
+// Audio Zone Logic (unchanged)
+let currentZone = null;
+for (let zone of audioZones) {
+const { xMin, xMax, zMin, zMax } = zone.bounds;
+const x = camera.position.x;
+const z = camera.position.z;
+
+if (x >= xMin && x <= xMax && z >= zMin && z <= zMax) {
+currentZone = zone;
+break;
+}
+}
+
+audioZones.forEach(zone => {
+const audio = document.getElementById(zone.id);
+if (audio) {
+if (zone === currentZone) {
+if (audio.paused) {
+audio.play();
+}
+} else {
+audio.pause();
+audio.currentTime = 0;
+}
+}
+});
+
+const speed = 0.1;
+const direction = new THREE.Vector3();
+
+if (keys['w']) direction.z -= 1;
+if (keys['s']) direction.z += 1;
+if (keys['a']) direction.x -= 1;
+if (keys['d']) direction.x += 1;
+
+if (direction.lengthSq() > 0) {
+direction.normalize().applyEuler(camera.rotation).multiplyScalar(speed);
+const futurePos = camera.position.clone().add(direction);
+const checkPos = new THREE.Vector3(futurePos.x, camera.position.y, futurePos.z);
+let moved = false;
+
+if (!isColliding(checkPos)) {
+camera.position.copy(futurePos);
+moved = true;
+} else {
+const stepHeight = 0.5;
+const stepUpPos = futurePos.clone();
+stepUpPos.y += stepHeight;
+
+const stepCheckPos = new THREE.Vector3(stepUpPos.x, stepUpPos.y, stepUpPos.z); // Corrected: stepUpUpPos.y to stepUpPos.y
+
+if (!isColliding(stepCheckPos)) {
+camera.position.copy(stepUpPos);
+moved = true;
+}
+}
+}
+
+// Raycaster for ground collision (existing logic)
+const groundRaycaster = new THREE.Raycaster(
+new THREE.Vector3(camera.position.x, camera.position.y + 1, camera.position.z),
+new THREE.Vector3(0, -1, 0)
+);
+
+const walkableObjects = [];
+scene.traverse((obj) => {
+if (obj.isMesh && !obj.userData.isTable && obj.visible) {
+walkableObjects.push(obj);
+}
+});
+
+const groundHits = groundRaycaster.intersectObjects(walkableObjects, true);
+
+if (groundHits.length > 0) {
+const groundY = groundHits[0].point.y;
+
+if (camera.position.y - groundY > 0 && camera.position.y - groundY < 3) {
+camera.position.y = groundY + 1.6;
+}
+}
+
+const isNearBase = camera.position.z < -9 && camera.position.y < -1;
+goToGroundBtn.style.display = isNearBase ? 'block' : 'none';
+
+const stairTopPos = new THREE.Vector3(0, camera.position.y, -10 + stairCount * stairDepth);
+const distToStairTop = camera.position.distanceTo(stairTopPos);
+
+if (distToStairTop < 2 && camera.position.y < 3) {
+goToFirstBtn.style.display = 'block';
+} else {
+goToFirstBtn.style.display = 'none';
+}
+
+renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+camera.aspect = window.innerWidth / window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
