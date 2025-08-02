@@ -1,6 +1,4 @@
-Thanks for the clarification! Here's a **simplified `README.md`** for your **Three.js-based VR Ganesha project** without WebXR (VR headset support). It includes basic keyboard/mouse movement, two floors, and models hosted on Google Drive.
 
----
 
 ````markdown
 # 🙏 VR Ganesha Gallery – Three.js Experience (Without WebXR)
@@ -80,13 +78,4 @@ May this virtual space bring blessings, creativity, and joy to all who visit. �
 
 ```
 
----
 
-Let me know if you'd like:
-
-- A sample `index.html` or `main.js` structure
-- Screenshot or video placeholders in the README
-- Model viewer preview
-
-I'm happy to generate those too.
-```
