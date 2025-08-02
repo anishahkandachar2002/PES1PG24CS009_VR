@@ -1,81 +1,76 @@
 
-
 ````markdown
-# 🙏 VR Ganesha Gallery – Three.js Experience (Without WebXR)
+# 🕉️ VR Ganesha Gallery – Three.js Project (No VR Headset Required)
 
-This project is a **3D interactive experience** built using **Three.js**, where users can explore various beautiful **Ganesha idols** across two floors: a ground floor and a first floor. It supports keyboard and mouse movement only — no VR headset required.
+This is a **Three.js-based virtual experience** showcasing multiple forms of **Lord Ganesha** in a peaceful 3D environment. It includes two floors (ground + first floor), user movement using keyboard and mouse, and interactive viewing of `.glb` Ganesha models.
 
-## ✨ Features
+📍 **Project Repository:**  
+[https://github.com/anishahkandachar2002/PES1PG24CS009_VR/tree/main/ThreeJS](https://github.com/anishahkandachar2002/PES1PG24CS009_VR/tree/main/ThreeJS)
 
-- 🕉️ Multiple Ganesha idols in `.glb` format
-- 🏛️ Two floors: Ground floor and First floor
-- 🧍 User movement with keyboard (WASD) and mouse look
-- 💡 Realistic lighting and textured environment
-- 🎮 Simple navigation without VR/WebXR
+## ✨ Key Features
 
-## 📦 Ganesha Models (GLB Files)
+- 🛕 Multiple Ganesha idols (loaded as `.glb` models)
+- 🏠 Ground and First Floor layout
+- 🎮 Keyboard + Mouse navigation (PointerLockControls)
+- 💡 Ambient lighting, textures, and realistic environment
+- 🚫 No VR headset required – accessible via regular web browser
 
-All Ganesha 3D models used in this project are hosted on Google Drive.  
-Download them from the link below and place them in your project folder (`/models` or `/assets`).
+## 📦 3D Model Download
 
-🔗 **[Download Ganesha Models from Google Drive](https://drive.google.com/drive/folders/YOUR_DRIVE_FOLDER_ID)**  
-*(Replace the above link with your actual folder link)*
+The `.glb` files used in this project are hosted on Google Drive.
 
-## 🚀 How to Run the Project
+📥 **[Download Ganesha Models](https://drive.google.com/drive/folders/YOUR_DRIVE_FOLDER_ID)**  
+> After downloading, place them inside the `main folder.  
 
-1. **Clone the repository**
+
+## 🚀 Running the Project Locally
+
+1. **Clone the repository:**
 
 ```bash
-git clone https://github.com/yourusername/vr-ganesha-gallery.git
-cd vr-ganesha-gallery
+git clone https://github.com/anishahkandachar2002/PES1PG24CS009_VR.git
+cd PES1PG24CS009_VR/ThreeJS
 ````
 
-2. **Download the GLB models** from the Google Drive link and place them inside a folder like `/models`.
-
-3. **Start a local server** (Three.js needs a server due to model loading)
+2. **Start a local server** (required to load models via Three.js)
 
 ```bash
-# Using Python 3
+# For Python 3
 python -m http.server
 ```
 
-Then open your browser and go to:
-
-```
-http://localhost:8000
-```
+Then open your browser at:
+[http://localhost:8000](http://localhost:8000)
 
 ## 🎮 Controls
 
-| Action                | Input                                |
-| --------------------- | ------------------------------------ |
-| Move Forward/Backward | `W` / `S`                            |
-| Move Left/Right       | `A` / `D`                            |
-| Look Around           | Mouse Movement                       |
-| Jump/Go Up Floor      | `Space` (if implemented)             |
-| Go Down Floor         | `Shift` or Down Key (if implemented) |
+| Action        | Key/Input                        |
+| ------------- | -------------------------------- |
+| Move Forward  | `W`                              |
+| Move Backward | `S`                              |
+| Move Left     | `A`                              |
+| Move Right    | `D`                              |
+| Look Around   | Move Mouse                       |
+| Switch Floor  | Use teleport/stairs (if enabled) |
 
-## 🧰 Technologies Used
+## 🧰 Tech Stack
 
 * [Three.js](https://threejs.org/)
-* [GLTFLoader](https://threejs.org/docs/#examples/en/loaders/GLTFLoader)
-* Vanilla JavaScript, HTML, and CSS
+* `GLTFLoader` for loading 3D models
+* `PointerLockControls` for first-person movement
+* HTML, CSS, JavaScript (Vanilla)
 
 ## 🙏 Credits
 
-* Ganesha models: [Sketchfab](https://sketchfab.com/), custom uploads
-* Textures: [Poly Haven](https://polyhaven.com/), [AmbientCG](https://ambientcg.com/)
-* Movement & scene logic: custom using Three.js and PointerLockControls
+* Ganesha 3D models: [Sketchfab](https://sketchfab.com/) / Google Drive
+* Textures: [AmbientCG](https://ambientcg.com/), [Poly Haven](https://polyhaven.com/)
+* Scene & control logic: Custom implementation in Three.js
 
 ## 📜 License
 
-This project is open-source and licensed under the **MIT License**.
+This project is open-source and available under the **MIT License**.
 
 ---
 
 *“Vakratunda Mahakaya Suryakoti Samaprabha…”*
-May this virtual space bring blessings, creativity, and joy to all who visit. 🙏
-
-```
-
-
+May Lord Ganesha guide your journey through code and creativity 🙏
