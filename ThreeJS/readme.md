@@ -19,7 +19,7 @@ This is a **Three.js-based virtual experience** showcasing multiple forms of **L
 
 The `.glb` files used in this project are hosted on Google Drive.
 
-📥 **[Download Ganesha Models](https://drive.google.com/drive/folders/YOUR_DRIVE_FOLDER_ID)**  
+📥 **[Download Ganesha Models](https://drive.google.com/drive/folders/1Bl3gybprbPlgW9o0im8XHwTPElCABRNg?usp=sharing)**  
 > After downloading, place them inside the `main folder.  
 
 
